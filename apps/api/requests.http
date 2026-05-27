@@ -1,0 +1,63 @@
+### 1. Create a project (no auth needed)
+POST http://localhost:3000/v1/projects
+Content-Type: application/json
+
+{ "name": "my-first-agent" }
+
+### -> copy the apiKey from the response into the @apiKey variable below
+
+@apiKey = tw_PASTE_HERE
+
+### 2. Start a run
+POST http://localhost:3000/v1/runs
+Content-Type: application/json
+x-api-key: {{apiKey}}
+
+{
+  "name": "support-ticket-triage",
+  "model": "claude-sonnet-4",
+  "metadata": { "ticket_id": "T-123" }
+}
+
+### -> copy the run id
+
+@runId = PASTE_RUN_ID_HERE
+
+### 3. Ingest spans (paste run id above first)
+POST http://localhost:3000/v1/runs/{{runId}}/spans
+Content-Type: application/json
+x-api-key: {{apiKey}}
+
+{
+  "spans": [
+    {
+      "id": "11111111-1111-1111-1111-111111111111",
+      "kind": "llm_call",
+      "name": "classify_intent",
+      "startedAt": "2026-05-15T08:00:00Z",
+      "endedAt": "2026-05-15T08:00:01.500Z",
+      "input": { "messages": [{ "role": "user", "content": "billing issue" }] },
+      "output": { "intent": "billing" },
+      "tokensIn": 120,
+      "tokensOut": 8,
+      "costUsd": 0.0012
+    },
+    {
+      "id": "22222222-2222-2222-2222-222222222222",
+      "parentSpanId": "11111111-1111-1111-1111-111111111111",
+      "kind": "tool_call",
+      "name": "lookup_invoice",
+      "startedAt": "2026-05-15T08:00:01.600Z",
+      "endedAt": "2026-05-15T08:00:01.900Z",
+      "input": { "user_id": "U-42" },
+      "output": { "invoice_id": "INV-7" }
+    }
+  ]
+}
+
+### 4. End the run
+PATCH http://localhost:3000/v1/runs/{{runId}}
+Content-Type: application/json
+x-api-key: {{apiKey}}
+
+{ "status": "succeeded", "totalTokens": 128, "totalCostUsd": 0.0012 }
