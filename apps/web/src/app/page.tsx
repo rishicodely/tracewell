@@ -1,65 +1,107 @@
-import Image from "next/image";
+import Link from "next/link";
+import { db, schema } from "@/lib/db";
+import { desc, sql } from "drizzle-orm";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function RunsPage() {
+  const rows = await db.execute<{
+    id: string;
+    name: string;
+    status: string;
+    started_at: Date;
+    ended_at: Date | null;
+    duration_ms: number | null;
+    span_count: number;
+    total_tokens: number;
+  }>(sql`
+    SELECT
+      r.id, r.name, r.status, r.started_at, r.ended_at,
+      EXTRACT(EPOCH FROM (r.ended_at - r.started_at)) * 1000 AS duration_ms,
+      COUNT(s.id)::int AS span_count,
+      r.total_tokens
+    FROM runs r
+    LEFT JOIN spans s ON s.run_id = r.id
+    GROUP BY r.id
+    ORDER BY r.started_at DESC
+    LIMIT 50
+  `);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-[#0a0a0a] text-zinc-200 font-mono">
+      <header className="border-b border-zinc-900 px-8 py-6">
+        <div className="flex items-baseline gap-4">
+          <h1 className="text-lg tracking-tight">tracewell</h1>
+          <span className="text-xs text-zinc-600">
+            agent traces · {rows.rows.length} runs
+          </span>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </header>
+
+      <div className="px-8 py-6">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs uppercase tracking-wider text-zinc-500 border-b border-zinc-900">
+              <th className="py-2 pr-4 font-normal">status</th>
+              <th className="py-2 pr-4 font-normal">name</th>
+              <th className="py-2 pr-4 font-normal">started</th>
+              <th className="py-2 pr-4 font-normal text-right">spans</th>
+              <th className="py-2 pr-4 font-normal text-right">tokens</th>
+              <th className="py-2 pr-4 font-normal text-right">duration</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.rows.map((r) => (
+              <tr
+                key={r.id}
+                className="border-b border-zinc-900/50 hover:bg-zinc-900/40 transition-colors"
+              >
+                <td className="py-3 pr-4">
+                  <StatusDot status={r.status} />
+                </td>
+                <td className="py-3 pr-4">
+                  <Link
+                    href={`/runs/${r.id}`}
+                    className="text-zinc-100 hover:text-emerald-400"
+                  >
+                    {r.name}
+                  </Link>
+                </td>
+                <td className="py-3 pr-4 text-zinc-500 text-xs">
+                  {new Date(r.started_at)
+                    .toISOString()
+                    .replace("T", " ")
+                    .slice(0, 19)}
+                </td>
+                <td className="py-3 pr-4 text-right text-zinc-400">
+                  {r.span_count}
+                </td>
+                <td className="py-3 pr-4 text-right text-zinc-400">
+                  {r.total_tokens?.toLocaleString() ?? "—"}
+                </td>
+                <td className="py-3 pr-4 text-right text-zinc-400">
+                  {r.duration_ms ? `${Math.round(r.duration_ms)}ms` : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </main>
+  );
+}
+
+function StatusDot({ status }: { status: string }) {
+  const color =
+    status === "succeeded"
+      ? "bg-emerald-500"
+      : status === "failed"
+        ? "bg-red-500"
+        : "bg-amber-500 animate-pulse";
+  return (
+    <span className="inline-flex items-center gap-2 text-xs text-zinc-400">
+      <span className={`w-1.5 h-1.5 rounded-full ${color}`} />
+      {status}
+    </span>
   );
 }
