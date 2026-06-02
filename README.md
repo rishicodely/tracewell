@@ -74,8 +74,10 @@ Open `http://localhost:3001`, see the run.
 ## What you get
 
 **Timeline view.** Every span as a horizontal bar positioned by start time, colored by kind (LLM call, tool call, retry, state update). Click to expand and see the full input, output, and error payloads. Sub-millisecond spans render in microseconds.
+<img width="1864" height="942" alt="Screenshot from 2026-05-30 09-25-51" src="https://github.com/user-attachments/assets/0a3f3c04-a74e-4010-9c57-5c8e45085339" />
 
 **Diff view.** Pass two run IDs, get a structured comparison: which spans matched, which diverged, which appeared in only one run. Duration deltas, token deltas, error appearances. Computed async via BullMQ.
+<img width="1847" height="947" alt="Screenshot from 2026-06-02 12-05-51" src="https://github.com/user-attachments/assets/ac2574ac-bf30-40e9-a2fa-b21089d36c4e" />
 
 **SDK that doesn't crash your agent.** Span uploads are batched (every 500ms or 20 spans, whichever first). Network failures are logged and dropped, never thrown — observability shouldn't crash the thing it observes. Span IDs are assigned client-side so you can reference `parentSpanId` without a round-trip.
 
