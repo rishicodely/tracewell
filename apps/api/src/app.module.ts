@@ -7,12 +7,26 @@ import { ProjectsModule } from './projects/projects.module';
 import { RunsController } from './runs/runs.controller';
 import { SpansController } from './spans/spans.controller';
 import { ApiKeyGuard } from './auth/api-key.guard';
+import { QueueModule } from './queue/queue.module';
+import { DiffsController } from './diffs/diffs.controller';
+import { DiffWorker } from './diffs/diff.worker';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), DbModule, ProjectsModule],
-  controllers: [AppController, RunsController, SpansController],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    DbModule,
+    QueueModule,
+    ProjectsModule,
+  ],
+  controllers: [
+    AppController,
+    RunsController,
+    SpansController,
+    DiffsController, // ← add
+  ],
   providers: [
     ApiKeyGuard,
+    DiffWorker, // ← add
     {
       provide: APP_PIPE,
       useValue: new ValidationPipe({

@@ -7,9 +7,7 @@ import {
   numeric,
   jsonb,
   index,
-  check,
 } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
 
 // Note: we don't define the vector column in Drizzle yet — we'll use raw SQL
 // for embedding queries later. Keeping schema.ts focused on the relational parts.
@@ -76,9 +74,41 @@ export const spans = pgTable(
   }),
 );
 
+export const diffs = pgTable(
+  'diffs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id),
+    runAId: uuid('run_a_id')
+      .notNull()
+      .references(() => runs.id, { onDelete: 'cascade' }),
+    runBId: uuid('run_b_id')
+      .notNull()
+      .references(() => runs.id, { onDelete: 'cascade' }),
+    status: text('status').notNull(),
+    result: jsonb('result'),
+    error: text('error'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (t) => ({
+    projectCreatedIdx: index('idx_diffs_project_created').on(
+      t.projectId,
+      t.createdAt.desc(),
+    ),
+    runsIdx: index('idx_diffs_runs').on(t.runAId, t.runBId),
+  }),
+);
+
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
 export type Run = typeof runs.$inferSelect;
 export type NewRun = typeof runs.$inferInsert;
 export type Span = typeof spans.$inferSelect;
 export type NewSpan = typeof spans.$inferInsert;
+export type Diff = typeof diffs.$inferSelect;
+export type NewDiff = typeof diffs.$inferInsert;
