@@ -107,8 +107,10 @@ export default async function RunPage({ params }: PageProps) {
               ((spanEnd - spanStart) / totalDuration) * 100,
               0.5,
             );
-            const durationMs = spanEnd - spanStart;
-
+            const durationMs =
+              span.durationNs !== null
+                ? span.durationNs / 1_000_000
+                : spanEnd - spanStart;
             return (
               <SpanRow
                 key={span.id}
@@ -186,7 +188,11 @@ function SpanRow({
             className="absolute inset-y-0 flex items-center text-[10px] text-zinc-300 px-1.5"
             style={{ left: `${Math.min(offsetPct + widthPct, 92)}%` }}
           >
-            {durationMs}ms
+            {durationMs < 1
+              ? `${(durationMs * 1000).toFixed(0)}μs`
+              : durationMs < 10
+                ? `${durationMs.toFixed(2)}ms`
+                : `${Math.round(durationMs)}ms`}{" "}
           </span>
         </div>
 

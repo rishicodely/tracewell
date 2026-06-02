@@ -1,4 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
+
+const currentSpanStorage = new AsyncLocalStorage<{ spanId: string }>();
 
 export interface TracewellOptions {
   apiKey: string;
@@ -18,6 +21,7 @@ interface SpanPayload {
   name: string;
   startedAt: string;
   endedAt?: string;
+  durationNs?: number; // <-- new
   input?: Record<string, unknown>;
   output?: Record<string, unknown>;
   error?: Record<string, unknown>;
@@ -146,40 +150,52 @@ export class Run {
   ): Promise<T> {
     const id = randomUUID();
     const startedAt = new Date().toISOString();
+    const startedHr = process.hrtime.bigint(); // <-- new (see P2)
     const handle = new SpanHandle();
 
-    try {
-      const result = await fn(handle);
-      this.client.enqueue(this.id, {
-        id,
-        parentSpanId: opts?.parentSpanId,
-        kind,
-        name,
-        startedAt,
-        endedAt: new Date().toISOString(),
-        input: handle.input,
-        output: handle.output,
-        tokensIn: handle.tokensIn,
-        tokensOut: handle.tokensOut,
-        costUsd: handle.costUsd,
-      });
-      return result;
-    } catch (err) {
-      this.client.enqueue(this.id, {
-        id,
-        parentSpanId: opts?.parentSpanId,
-        kind,
-        name,
-        startedAt,
-        endedAt: new Date().toISOString(),
-        input: handle.input,
-        error: {
-          message: err instanceof Error ? err.message : String(err),
-          stack: err instanceof Error ? err.stack : undefined,
-        },
-      });
-      throw err;
-    }
+    // Resolve parent: explicit override > ambient context > none
+    const ambientParent = currentSpanStorage.getStore()?.spanId;
+    const parentSpanId = opts?.parentSpanId ?? ambientParent;
+
+    // Run the callback with this span as the new ambient parent.
+    return currentSpanStorage.run({ spanId: id }, async () => {
+      try {
+        const result = await fn(handle);
+        const endedHr = process.hrtime.bigint();
+        this.client.enqueue(this.id, {
+          id,
+          parentSpanId,
+          kind,
+          name,
+          startedAt,
+          endedAt: new Date().toISOString(),
+          durationNs: Number(endedHr - startedHr), // <-- new (see P2)
+          input: handle.input,
+          output: handle.output,
+          tokensIn: handle.tokensIn,
+          tokensOut: handle.tokensOut,
+          costUsd: handle.costUsd,
+        });
+        return result;
+      } catch (err) {
+        const endedHr = process.hrtime.bigint();
+        this.client.enqueue(this.id, {
+          id,
+          parentSpanId,
+          kind,
+          name,
+          startedAt,
+          endedAt: new Date().toISOString(),
+          durationNs: Number(endedHr - startedHr),
+          input: handle.input,
+          error: {
+            message: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined,
+          },
+        });
+        throw err;
+      }
+    });
   }
 
   async end(opts: {

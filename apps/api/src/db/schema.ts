@@ -8,6 +8,7 @@ import {
   jsonb,
   index,
 } from 'drizzle-orm/pg-core';
+import { bigint } from 'drizzle-orm/pg-core';
 
 // Note: we don't define the vector column in Drizzle yet — we'll use raw SQL
 // for embedding queries later. Keeping schema.ts focused on the relational parts.
@@ -67,6 +68,7 @@ export const spans = pgTable(
     tokensIn: integer('tokens_in'),
     tokensOut: integer('tokens_out'),
     costUsd: numeric('cost_usd', { precision: 12, scale: 6 }),
+    durationNs: bigint('duration_ns', { mode: 'number' }),
   },
   (t) => ({
     runIdx: index('idx_spans_run').on(t.runId, t.startedAt),

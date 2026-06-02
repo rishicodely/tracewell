@@ -43,6 +43,10 @@ class IngestSpanDto {
   @IsOptional() @IsInt() @Min(0) tokensIn?: number;
   @IsOptional() @IsInt() @Min(0) tokensOut?: number;
   @IsOptional() @IsNumber() costUsd?: number;
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  durationNs?: number;
 }
 
 class IngestSpansDto {
@@ -78,10 +82,10 @@ export class SpansController {
       tokensIn: s.tokensIn ?? null,
       tokensOut: s.tokensOut ?? null,
       costUsd: s.costUsd !== undefined ? String(s.costUsd) : null,
+      durationNs: s.durationNs ?? null,
     }));
 
     await this.db.insert(spans).values(rows).onConflictDoNothing();
-
     return { ingested: rows.length };
   }
 }
